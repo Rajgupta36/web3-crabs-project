@@ -45,12 +45,10 @@ export default function Dashboard() {
       id: 1,
       name: "Ethereum",
       symbol: "ETH",
-      amount: balance ? Number(balance) : 0,
-      value: balance ? Number(balance) * 3000 : 0,
+      amount: 100,
+      value: 150,
       icon: "ETH",
-    },
-    { id: 2, name: "Bitcoin", symbol: "BTC", amount: 0.025, value: 0.025 * 60000, icon: "BTC" },
-    { id: 3, name: "Solana", symbol: "SOL", amount: 5.75, value: 5.75 * 100, icon: "SOL" },
+    }
   ]
 
   const recentTransactions = [
@@ -333,7 +331,7 @@ export default function Dashboard() {
                       >
                         <div className="flex items-center">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600/50 to-blue-600/50 flex items-center justify-center mr-3">
-                            <span className="font-bold text-white">{asset.icon}</span>
+                            <span className="font-bold text-white ">{asset.icon}</span>
                           </div>
                           <div>
                             <div className="font-medium">{asset.name}</div>
@@ -345,36 +343,17 @@ export default function Dashboard() {
                             {asset.amount.toFixed(4)} {asset.symbol}
                           </div>
                           <div className="text-sm text-gray-400">
-                            ${asset.value.toLocaleString("en-US", { maximumFractionDigits: 2 })}
+                            ${asset.value}
                           </div>
                         </div>
                       </div>
                     ))}
-
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-900/50 border border-white/5">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-purple-900/50 flex items-center justify-center mr-3">
-                          <CreditCard className="w-5 h-5 text-purple-400" />
-                        </div>
-                        <div>
-                          <div className="font-medium">NFT Collection</div>
-                          <div className="text-sm text-gray-400">Digital Collectibles</div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-medium">3 Items</div>
-                        <Button variant="link" className="p-0 h-auto text-sm text-blue-400">
-                          View Collection
-                        </Button>
-                      </div>
-                    </div>
-
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-400">Total Estimated Value</span>
                         <span className="font-bold text-xl">
                           $
-                          {(cryptoHoldings.reduce((total, holding) => total + holding.value, 0) + 5000).toLocaleString(
+                          {(cryptoHoldings.reduce((total, holding) => total + holding.value, 0)).toLocaleString(
                             "en-US",
                             { maximumFractionDigits: 2 },
                           )}
@@ -408,9 +387,8 @@ export default function Dashboard() {
                         >
                           <div className="flex items-center">
                             <div
-                              className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-                                tx.type === "received" ? "bg-green-900/50" : "bg-blue-900/50"
-                              }`}
+                              className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${tx.type === "received" ? "bg-green-900/50" : "bg-blue-900/50"
+                                }`}
                             >
                               {tx.type === "received" ? (
                                 <ArrowDown className="w-5 h-5 text-green-400" />
