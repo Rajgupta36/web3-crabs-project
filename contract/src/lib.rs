@@ -3,22 +3,23 @@ extern crate alloc;
 use stylus_sdk::{
     alloy_primitives::{Address, U256},
     prelude::*,
-    storage::{StorageAddress, StorageBool, StorageMap, StorageU256},
+    storage::{ StorageBool, StorageMap, StorageU256},
 };
-
-// sol_interface! {
-//     interface IERC20 {
-//         function balanceOf(address account) external view returns (uint256);
-//         function transfer(address recipient, uint256 amount) external returns (bool);
-//     }
-// }
 
 #[storage]
 #[entrypoint]
 pub struct InheritanceContract {
-    // Owner of the contract
-    owner: StorageAddress,
-    // Beneficiaries (address => is_beneficiary)
+    // Mapping: owner => inheritance_config
+    owners: StorageMap<Address, InheritanceConfig>,
+    // Total number of active owners
+    owner_count: StorageU256,
+}
+
+#[storage]
+pub struct InheritanceConfig {
+    // Flag to check if this config exists
+    active: StorageBool,
+    // Beneficiaries (address => is_benefic iary)
     beneficiaries: StorageMap<Address, StorageBool>,
     // Total number of beneficiaries
     beneficiary_count: StorageU256,
@@ -38,183 +39,253 @@ pub struct InheritanceContract {
 
 #[public]
 impl InheritanceContract {
-    // Constructor to initialize the contract
+    // Create a new inheritance plan (acts as constructor for a specific user)
     #[payable]
-    fn constructor(&mut self, initial_beneficiaries: Vec<Address>) {
-        self.owner.set(self.vm().msg_sender());
-        self.timeout_period.set(U256::from(31_536_000)); // 1 year in seconds
-        self.last_reset.set(U256::from(block_timestamp(self)));
-        self.balance.set(self.vm().msg_value());
-        self.share_locked.set(false);
+    fn create_inheritance_plan(&mut self, initial_beneficiaries: Vec<Address>, timeout_period_days: u64) {
+        let owner = self.vm().msg_sender();
+        require(
+            !self.owner_exists(owner),
+            "You already have an inheritance plan"
+        );
 
+        // Initialize owner's inheritance config
+
+
+        let msg_value = self.vm().msg_value();
+        let current_timestamp = U256::from(block_timestamp(self));
+        let mut config = self.owners.setter(owner);
+        config.active.set(true);
+        config.timeout_period.set(U256::from(timeout_period_days) * U256::from(86400)); // Convert days to seconds
+        config.last_reset.set(current_timestamp);
+        config.balance.set(msg_value);
+        config.share_locked.set(false);
+
+        // Add initial beneficiaries
         let mut count = 0;
         for addr in initial_beneficiaries.iter().take(5) {
-            if !addr.is_zero() && !self.beneficiaries.get(*addr) {
-                self.beneficiaries.setter(*addr).set(true);
+            if !addr.is_zero() && !config.beneficiaries.get(*addr) {
+                config.beneficiaries.setter(*addr).set(true);
                 count += 1;
             }
         }
-        self.beneficiary_count.set(U256::from(count));
+        config.beneficiary_count.set(U256::from(count));
+        
+        // Increment owner count
+        self.owner_count.set(self.owner_count.get() + U256::from(1));
     }
 
-    // Add funds (ETH) to the contract
+    // Add funds (ETH) to the inheritance plan
     #[payable]
     fn add_funds(&mut self) {
-        require(
-            self.vm().msg_sender() == self.owner.get(),
-            "Only owner can add funds",
-        );
-        require(
-            !self.share_locked.get(),
-            "Contract has expired, cannot add funds",
-        );
+        let owner = self.vm().msg_sender();
+        require(self.owner_exists(owner), "No inheritance plan found");
+        
         let amount = U256::from(self.vm().msg_value());
-        self.balance.set(self.balance.get() + amount);
+        let mut config = self.owners.setter(owner);
+        require(!config.share_locked.get(), "Plan has expired, cannot add funds");
+        
+        let current_balance = config.balance.get();
+        config.balance.set(current_balance + amount);
     }
 
     // Add a beneficiary
     fn add_beneficiary(&mut self, beneficiary: Address) {
-        require(
-            self.vm().msg_sender() == self.owner.get(),
-            "Only owner can add beneficiary",
-        );
-        require(
-            !self.share_locked.get(),
-            "Contract has expired, cannot add beneficiary",
-        );
-        require(
-            self.beneficiary_count.get() < U256::from(5),
-            "Max 5 beneficiaries",
-        );
+        let owner = self.vm().msg_sender();
+        require(self.owner_exists(owner), "No inheritance plan found");
+        
+        let mut config = self.owners.setter(owner);
+        require(!config.share_locked.get(), "Plan has expired, cannot add beneficiary");
+        require(config.beneficiary_count.get() < U256::from(5), "Max 5 beneficiaries");
         require(!beneficiary.is_zero(), "Invalid beneficiary address");
-        require(
-            !self.beneficiaries.get(beneficiary),
-            "Beneficiary already exists",
-        );
+        require(!config.beneficiaries.get(beneficiary), "Beneficiary already exists");
 
-        self.beneficiaries.setter(beneficiary).set(true);
-        self.beneficiary_count
-            .set(self.beneficiary_count.get() + U256::from(1));
+        config.beneficiaries.setter(beneficiary).set(true);
+        let current_count = config.beneficiary_count.get();
+        config.beneficiary_count.set(current_count + U256::from(1));
     }
 
     // Remove a beneficiary
     fn remove_beneficiary(&mut self, beneficiary: Address) {
-        require(
-            self.vm().msg_sender() == self.owner.get(),
-            "Only owner can remove beneficiary",
-        );
-        require(
-            !self.share_locked.get(),
-            "Contract has expired, cannot remove beneficiary",
-        );
-        require(self.beneficiaries.get(beneficiary), "Not a beneficiary");
+        let owner = self.vm().msg_sender();
+        require(self.owner_exists(owner), "No inheritance plan found");
+        
+        let mut config = self.owners.setter(owner);
+        require(!config.share_locked.get(), "Plan has expired, cannot remove beneficiary");
+        require(config.beneficiaries.get(beneficiary), "Not a beneficiary");
 
-        self.beneficiaries.setter(beneficiary).set(false);
-        self.beneficiary_count
-            .set(self.beneficiary_count.get() - U256::from(1));
+        config.beneficiaries.setter(beneficiary).set(false);
+        let current_count = config.beneficiary_count.get();
+        config.beneficiary_count.set(current_count - U256::from(1));
     }
 
-    // Reset the timer (only owner)
+    // Reset the timer
     fn reset_timer(&mut self) {
-        require(
-            self.vm().msg_sender() == self.owner.get(),
-            "Only owner can reset timer",
-        );
-        require(
-            !self.share_locked.get(),
-            "Contract has expired, cannot reset timer",
-        );
-        self.last_reset.set(U256::from(block_timestamp(self)));
+        let owner = self.vm().msg_sender();
+        require(self.owner_exists(owner), "No inheritance plan found");
+        
+        let mut config = self.owners.setter(owner);
+        require(!config.share_locked.get(), "Plan has expired, cannot reset timer");
+        
+        let current_timestamp = U256::from(self.vm().block_timestamp());
+        config.last_reset.set(current_timestamp);
     }
 
-    // Lock the per-beneficiary share amount (called once when contract expires)
-    fn lock_share(&mut self) {
-        require(self.is_expired(), "Contract not expired yet");
-        require(!self.share_locked.get(), "Share already locked");
+    // Lock the per-beneficiary share amount for a specific owner
+    fn lock_share(&mut self, owner: Address) {
+        require(self.owner_exists(owner), "Owner does not exist");
+        
+        let mut config = self.owners.setter(owner);
+        require(self.is_owner_expired(owner), "Plan not expired yet");
+        require(!config.share_locked.get(), "Share already locked");
 
-        let count = self.beneficiary_count.get();
+        let count = config.beneficiary_count.get();
         require(count > U256::from(0), "No beneficiaries");
 
-        let balance = self.balance.get();
+        let balance = config.balance.get();
         require(balance > U256::from(0), "No funds to distribute");
 
         // Lock in the per-beneficiary share
-        self.per_beneficiary_share.set(balance / count);
-        self.share_locked.set(true);
+        config.per_beneficiary_share.set(balance / count);
+        config.share_locked.set(true);
     }
 
     // Redeem ETH by beneficiaries after timeout
-    fn redeem(&mut self) {
-        require(self.is_expired(), "Contract not expired");
+    fn redeem(&mut self, owner: Address) {
+        require(self.owner_exists(owner), "Owner does not exist");
+        require(self.is_owner_expired(owner), "Plan not expired");
 
         let sender = self.vm().msg_sender();
-        require(self.beneficiaries.get(sender), "Not a beneficiary");
-        require(!self.claimed.get(sender), "Already claimed");
+        let mut config = self.owners.setter(owner);
+        require(config.beneficiaries.get(sender), "Not a beneficiary");
+        require(!config.claimed.get(sender), "Already claimed");
 
         // Lock share if not already locked
-        if !self.share_locked.get() {
-            self.lock_share();
+        if !config.share_locked.get() {
+            self.lock_share(owner);
+            // Refresh config after lock_share
+            config = self.owners.setter(owner);
         }
 
-        let amount = self.per_beneficiary_share.get();
+        let amount = config.per_beneficiary_share.get();
         require(amount > U256::from(0), "No funds to redeem");
 
         // Mark beneficiary as claimed
-        self.claimed.setter(sender).set(true);
-        self.beneficiaries.setter(sender).set(false);
-        self.beneficiary_count
-            .set(self.beneficiary_count.get() - U256::from(1));
-        self.balance.set(self.balance.get() - amount);
+        config.claimed.setter(sender).set(true);
+        config.beneficiaries.setter(sender).set(false);
+        config.beneficiary_count.set(config.beneficiary_count.get() - U256::from(1));
+        config.balance.set(config.balance.get() - amount);
+        
+        // If all funds claimed, deactivate the owner's config
+        if config.balance.get() == U256::from(0) || config.beneficiary_count.get() == U256::from(0) {
+            config.active.set(false);
+            self.owner_count.set(self.owner_count.get() - U256::from(1));
+        }
+        
+        // Transfer funds
         let recipient = sender;
         let success = self.vm().transfer_eth(recipient, amount);
         match success {
             Ok(_) => {}
             Err(_) => {
                 // Revert state on failed transfer
-                self.claimed.setter(sender).set(false);
-                self.beneficiaries.setter(sender).set(true);
-                self.beneficiary_count
-                    .set(self.beneficiary_count.get() + U256::from(1));
-                self.balance.set(self.balance.get() + amount);
+                config.claimed.setter(sender).set(false);
+                config.beneficiaries.setter(sender).set(true);
+                config.beneficiary_count.set(config.beneficiary_count.get() + U256::from(1));
+                config.balance.set(config.balance.get() + amount);
+                
+                // Restore owner if deactivated
+                if !config.active.get() {
+                    config.active.set(true);
+                    self.owner_count.set(self.owner_count.get() + U256::from(1));
+                }
+                
                 panic!("Transfer failed");
             }
         }
     }
 
-    // Check if contract is expired
-    fn is_expired(&self) -> bool {
+    // Withdraw all funds (only owner can call before expiration)
+    fn withdraw_all(&mut self) {
+        let owner = self.vm().msg_sender();
+        require(self.owner_exists(owner), "No inheritance plan found");
+        
+        let mut config = self.owners.setter(owner);
+        require(!config.share_locked.get(), "Plan has expired, cannot withdraw");
+        
+        let amount = config.balance.get();
+        require(amount > U256::from(0), "No funds to withdraw");
+        
+        // Clear the balance before transfer to prevent reentrancy
+        config.balance.set(U256::from(0));
+        
+        // Deactivate the plan if withdrawing all funds
+        config.active.set(false);
+        self.owner_count.set(self.owner_count.get() - U256::from(1));
+        
+        // Transfer funds
+        let success = self.vm().transfer_eth(owner, amount);
+        match success {
+            Ok(_) => {}
+            Err(_) => {
+                // Restore state on failed transfer
+                config.balance.set(amount);
+                config.active.set(true);
+                self.owner_count.set(self.owner_count.get() + U256::from(1));
+                panic!("Transfer failed");
+            }
+        }
+    }
+
+    // Get an owner's inheritance plan details
+    fn get_plan_details(&self, owner: Address) -> (U256, U256, U256, U256, U256, bool) {
+        require(self.owner_exists(owner), "Owner does not exist");
+        
+        let config = self.owners.get(owner);
+        
+        (
+            config.balance.get(),               // Current balance
+            config.beneficiary_count.get(),     // Number of beneficiaries
+            config.last_reset.get(),            // Last reset timestamp
+            config.timeout_period.get(),        // Timeout period in seconds
+            config.per_beneficiary_share.get(), // Share per beneficiary (if locked)
+            config.share_locked.get()           // Whether the share is locked
+        )
+    }
+
+    // Check if a specific owner's plan is expired
+    fn is_owner_expired(&self, owner: Address) -> bool {
+        require(self.owner_exists(owner), "Owner does not exist");
+        
+        let config = self.owners.get(owner);
         let current_time = U256::from(block_timestamp(self));
-        current_time >= self.last_reset.get() + self.timeout_period.get()
+        current_time >= config.last_reset.get() + config.timeout_period.get()
     }
-
-    // Get contract balance
-    fn get_balance(&self) -> U256 {
-        self.balance.get()
+    
+    // Check if an address is a beneficiary of a specific owner
+    fn is_beneficiary(&self, owner: Address, beneficiary: Address) -> bool {
+        require(self.owner_exists(owner), "Owner does not exist");
+        
+        let config = self.owners.get(owner);
+        config.beneficiaries.get(beneficiary)
     }
-
-    // Get beneficiary count
-    fn get_beneficiary_count(&self) -> U256 {
-        self.beneficiary_count.get()
-    }
-
-    // Get last reset timestamp
-    fn get_last_reset(&self) -> U256 {
-        self.last_reset.get()
-    }
-
-    // Get per beneficiary share amount (0 if not locked yet)
-    fn get_per_beneficiary_share(&self) -> U256 {
-        self.per_beneficiary_share.get()
-    }
-
+    
     // Check if a beneficiary has claimed their share
-    fn has_claimed(&self, beneficiary: Address) -> bool {
-        self.claimed.get(beneficiary)
+    fn has_claimed(&self, owner: Address, beneficiary: Address) -> bool {
+        require(self.owner_exists(owner), "Owner does not exist");
+        
+        let config = self.owners.get(owner);
+        config.claimed.get(beneficiary)
+    }
+    
+    // Get the total number of owners with active plans
+    fn get_owner_count(&self) -> U256 {
+        self.owner_count.get()
     }
 
-    // Check if share is locked (contract expired)
-    fn is_share_locked(&self) -> bool {
-        self.share_locked.get()
+    // Helper function to check if an owner exists
+    fn owner_exists(&self, owner: Address) -> bool {
+        let config = self.owners.get(owner);
+        config.active.get()
     }
 }
 
