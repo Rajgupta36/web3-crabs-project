@@ -1,61 +1,33 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { useWallet } from "@/components/wallet-provider";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  AlertCircle,
-  ArrowDown,
-  ArrowUp,
-  Bell,
-  Clock,
-  CreditCard,
-  Info,
-  Settings,
-  Shield,
-  User,
-  Wallet,
-  Plus,
-  ArrowRight,
-} from "lucide-react";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import NotificationPanel from "@/components/notification-panel";
-import { ethers } from "ethers";
-import { inheritanceABI } from "@/lib/abis/InheritanceContract";
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { useWallet } from "@/components/wallet-provider"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AlertCircle, ArrowDown, ArrowUp, Bell, Clock, CreditCard, Info, Settings, Shield, User, Wallet, Plus, ArrowRight } from 'lucide-react'
+import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import NotificationPanel from "@/components/notification-panel"
+import { ethers } from "ethers"
+import { inheritanceABI } from "@/lib/abis/InheritanceContract"
 
-const provider = new ethers.JsonRpcProvider(
-  "https://arb-sepolia.g.alchemy.com/v2/f9bE8l6qwQCIYwFnkd-iPUFehrLW1wtY"
-);
-const contractAddress = "0xc2dF3Fd12E0d4Ce80Fd318f5149AD9Bb7d1D3763";
-const contract = new ethers.Contract(contractAddress, inheritanceABI, provider);
+const provider = new ethers.JsonRpcProvider("https://arb-sepolia.g.alchemy.com/v2/f9bE8l6qwQCIYwFnkd-iPUFehrLW1wtY")
+const contractAddress = "0xc2dF3Fd12E0d4Ce80Fd318f5149AD9Bb7d1D3763"
+const contract = new ethers.Contract(contractAddress, inheritanceABI, provider)
 
 export default function Dashboard() {
-  const { address, balance, connectWallet } = useWallet();
-  const [progress, setProgress] = useState(0);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(3);
+  const { address, balance, connectWallet } = useWallet()
+  const [progress, setProgress] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(3)
 
   // Contract data states
-  const [planExists, setPlanExists] = useState(false);
+  const [planExists, setPlanExists] = useState(false)
   const [planDetails, setPlanDetails] = useState({
     balance: 0,
     beneficiaryCount: 0,
@@ -64,44 +36,44 @@ export default function Dashboard() {
     perBeneficiaryShare: 0,
     shareLocked: false,
     protocolShare: 0,
-  });
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const [beneficiaries, setBeneficiaries] = useState([]);
-  const [isExpired, setIsExpired] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  })
+  const [timeRemaining, setTimeRemaining] = useState(0)
+  const [beneficiaries, setBeneficiaries] = useState<{ id: number; name: string; address: string; percentage: number; relationship: string; }[]>([])
+  const [isExpired, setIsExpired] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   // Fetch contract data when address changes
   useEffect(() => {
     if (address) {
-      fetchContractData();
+      fetchContractData()
     }
-  }, [address]);
+  }, [address])
 
   // Update progress based on plan details
   useEffect(() => {
     if (planExists) {
       // Calculate progress based on beneficiary count and other factors
-      const beneficiaryProgress = planDetails.beneficiaryCount > 0 ? 50 : 0;
-      const balanceProgress = planDetails.balance > 0 ? 50 : 0;
-      setProgress(beneficiaryProgress + balanceProgress);
+      const beneficiaryProgress = planDetails.beneficiaryCount > 0 ? 50 : 0
+      const balanceProgress = planDetails.balance > 0 ? 50 : 0
+      setProgress(beneficiaryProgress + balanceProgress)
     } else {
-      setProgress(0);
+      setProgress(0)
     }
-  }, [planDetails, planExists]);
+  }, [planDetails, planExists])
 
   // Fetch all contract data
   async function fetchContractData() {
-    if (!address) return;
+    if (!address) return
 
-    setIsLoading(true);
+    setIsLoading(true)
     try {
       // Check if owner exists
-      const ownerExists = await contract.ownerExists(address);
-      console.log("Owner exists:", ownerExists);
-      setPlanExists(ownerExists);
+      const ownerExists = await contract.ownerExists(address)
+      setPlanExists(ownerExists)
 
       if (ownerExists) {
-        const details = await contract.getPlanDetails(address);
+        // Get plan details
+        const details = await contract.getPlanDetails(address)
 
         // Convert BigInt values to numbers for UI
         setPlanDetails({
@@ -112,20 +84,20 @@ export default function Dashboard() {
           perBeneficiaryShare: Number(ethers.formatEther(details[4] || 0)),
           shareLocked: details[5] || false,
           protocolShare: Number(ethers.formatEther(details[6] || 0)),
-        });
+        })
 
         // Check if plan is expired
-        const expired = await contract.isOwnerExpired(address);
-        setIsExpired(expired);
+        const expired = await contract.isOwnerExpired(address)
+        setIsExpired(expired)
 
         // Get time remaining
-        const remaining = await contract.timeRemaining(address);
-        setTimeRemaining(Number(remaining || 0));
+        const remaining = await contract.timeRemaining(address)
+        setTimeRemaining(Number(remaining || 0))
 
         // For a real implementation, you would need to fetch the actual beneficiaries
         // This would require either events or a contract method that returns all beneficiaries
         // For now, we'll create placeholder beneficiaries based on the count
-        const placeholderBeneficiaries = [];
+        const placeholderBeneficiaries = []
         for (let i = 0; i < Number(details[1]); i++) {
           placeholderBeneficiaries.push({
             id: i + 1,
@@ -133,18 +105,18 @@ export default function Dashboard() {
             address: `0x${"0".repeat(40)}`, // Placeholder address
             percentage: 100 / Number(details[1]),
             relationship: "Unknown",
-          });
+          })
         }
-        setBeneficiaries(placeholderBeneficiaries);
+        setBeneficiaries(placeholderBeneficiaries)
       } else {
         // Reset all values if no plan exists
-        resetContractData();
+        resetContractData()
       }
     } catch (error) {
-      console.error("Error fetching contract data:", error);
-      resetContractData();
+      console.error("Error fetching contract data:", error)
+      resetContractData()
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 
@@ -158,57 +130,46 @@ export default function Dashboard() {
       perBeneficiaryShare: 0,
       shareLocked: false,
       protocolShare: 0,
-    });
-    setTimeRemaining(0);
-    setBeneficiaries([]);
-    setIsExpired(false);
+    })
+    setTimeRemaining(0)
+    setBeneficiaries([])
+    setIsExpired(false)
   }
 
   // Reset the timer
   async function handleResetTimer() {
-    if (!address || !planExists) return;
-
+    if (!address || !planExists ) return
     try {
-      // You would need a signer to send transactions
-      const signer = new ethers.Wallet("YOUR_PRIVATE_KEY", provider);
-      const contractWithSigner = contract.connect(signer);
-
-      const tx = await contractWithSigner.resetTimer();
-      await tx.wait();
-
       // Refresh data after transaction
-      fetchContractData();
+      fetchContractData()
     } catch (error) {
-      console.error("Error resetting timer:", error);
+      console.error("Error resetting timer:", error)
     }
   }
 
   // Format time remaining in a human-readable format
-  function formatTimeRemaining(seconds) {
-    if (seconds <= 0) return "Expired";
+  function formatTimeRemaining(seconds: number) {
+    if (seconds <= 0) return "Expired"
 
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+    const days = Math.floor(seconds / 86400)
+    const hours = Math.floor((seconds % 86400) / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
 
     if (days > 0) {
-      return `${days} days, ${hours} hours`;
+      return `${days} days, ${hours} hours`
     } else if (hours > 0) {
-      return `${hours} hours, ${minutes} minutes`;
+      return `${hours} hours, ${minutes} minutes`
     } else {
-      return `${minutes} minutes`;
+      return `${minutes} minutes`
     }
   }
 
   // Calculate percentage of time elapsed
   function calculateTimePercentage() {
-    if (!planDetails.timeoutPeriod) return 0;
+    if (!planDetails.timeoutPeriod) return 0
 
-    const elapsed = planDetails.timeoutPeriod - timeRemaining;
-    return Math.min(
-      100,
-      Math.max(0, Math.floor((elapsed / planDetails.timeoutPeriod) * 100))
-    );
+    const elapsed = planDetails.timeoutPeriod - timeRemaining
+    return Math.min(100, Math.max(0, Math.floor((elapsed / planDetails.timeoutPeriod) * 100)))
   }
 
   // Mock transactions data - in a real app, you would fetch this from blockchain events
@@ -216,28 +177,20 @@ export default function Dashboard() {
     {
       id: 1,
       type: "received",
-      amount: planExists
-        ? `${(planDetails.balance * 0.1).toFixed(4)} ETH`
-        : "0 ETH",
-      from: address
-        ? `${address.substring(0, 6)}...${address.substring(
-            address.length - 4
-          )}`
-        : "0x0000...0000",
+      amount: planExists ? `${(planDetails.balance * 0.1).toFixed(4)} ETH` : "0 ETH",
+      from: address ? `${address.substring(0, 6)}...${address.substring(address.length - 4)}` : "0x0000...0000",
       timestamp: "2 hours ago",
       status: "completed",
     },
     {
       id: 2,
       type: "sent",
-      amount: planExists
-        ? `${(planDetails.balance * 0.05).toFixed(4)} ETH`
-        : "0 ETH",
+      amount: planExists ? `${(planDetails.balance * 0.05).toFixed(4)} ETH` : "0 ETH",
       to: "0x5e6f...7g8h",
       timestamp: "1 day ago",
       status: "completed",
     },
-  ];
+  ]
 
   if (!address) {
     return (
@@ -252,8 +205,7 @@ export default function Dashboard() {
             Secure Your Crypto Legacy
           </h1>
           <p className="text-xl text-gray-400 mb-8 max-w-2xl mx-auto">
-            Ensure your digital assets are passed on to your chosen
-            beneficiaries after a period of inactivity.
+            Ensure your digital assets are passed on to your chosen beneficiaries after a period of inactivity.
           </p>
 
           <div className="grid-pattern w-full h-64 rounded-xl overflow-hidden relative mb-10">
@@ -303,7 +255,7 @@ export default function Dashboard() {
           </Button>
         </motion.div>
       </div>
-    );
+    )
   }
 
   return (
@@ -334,12 +286,8 @@ export default function Dashboard() {
           className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
         >
           <div>
-            <h1 className="text-3xl font-bold mb-2">
-              Welcome to Your Dashboard
-            </h1>
-            <p className="text-gray-400">
-              Manage your crypto inheritance settings and beneficiaries
-            </p>
+            <h1 className="text-3xl font-bold mb-2">Welcome to Your Dashboard</h1>
+            <p className="text-gray-400">Manage your crypto inheritance settings and beneficiaries</p>
           </div>
           <div className="flex items-center gap-3">
             <Button
@@ -359,8 +307,8 @@ export default function Dashboard() {
                     size="icon"
                     className="relative border-white/10 hover:bg-white/5"
                     onClick={() => {
-                      setShowNotifications(!showNotifications);
-                      setUnreadNotifications(0);
+                      setShowNotifications(!showNotifications)
+                      setUnreadNotifications(0)
                     }}
                   >
                     <Bell className="h-5 w-5" />
@@ -380,12 +328,7 @@ export default function Dashboard() {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="border-white/10 hover:bg-white/5"
-                    asChild
-                  >
+                  <Button variant="outline" size="icon" className="border-white/10 hover:bg-white/5" asChild>
                     <Link href="/settings">
                       <Settings className="h-5 w-5" />
                     </Link>
@@ -437,13 +380,13 @@ export default function Dashboard() {
                   `${planDetails.balance.toFixed(4)} ETH`
                 )}
               </div>
-              <div className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-gray-400 mt-1">
                 {isLoading ? (
                   <div className="h-4 w-32 bg-gray-800 animate-pulse rounded"></div>
                 ) : (
-                  `Total value: $${(planDetails.balance * 1800).toFixed(2)}`
+                  `Total value: ${(planDetails.balance * 1800).toFixed(2)}`
                 )}
-              </div>
+              </p>
             </CardContent>
           </Card>
 
@@ -485,14 +428,9 @@ export default function Dashboard() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button
-                variant="link"
-                className="p-0 h-auto text-blue-400"
-                asChild
-              >
+              <Button variant="link" className="p-0 h-auto text-blue-400" asChild>
                 <Link href="/beneficiaries">
-                  {planExists ? "Manage Plan" : "Create Plan"}{" "}
-                  <ArrowRight className="ml-1 w-4 h-4" />
+                  {planExists ? "Manage Plan" : "Create Plan"} <ArrowRight className="ml-1 w-4 h-4" />
                 </Link>
               </Button>
             </CardFooter>
@@ -518,40 +456,27 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <>
-                  <div
-                    className={`text-xl font-medium ${
-                      isExpired ? "text-red-500" : "text-green-500"
-                    }`}
-                  >
+                  <div className={`text-xl font-medium ${isExpired ? "text-red-500" : "text-green-500"}`}>
                     {isExpired ? "Expired" : "Active"}
                   </div>
                   <div className="text-sm text-gray-400 mt-1">
-                    Last activity:{" "}
-                    {planExists
-                      ? new Date(planDetails.lastReset * 1000).toLocaleString()
-                      : "N/A"}
+                    Last activity: {planExists ? new Date(planDetails.lastReset * 1000).toLocaleString() : "N/A"}
                   </div>
                   <div className="mt-3 pt-3 border-t border-white/10">
                     <div className="text-sm">
                       Inactivity threshold:{" "}
                       <span className="font-medium">
-                        {planExists
-                          ? formatTimeRemaining(planDetails.timeoutPeriod)
-                          : "N/A"}
+                        {planExists ? formatTimeRemaining(planDetails.timeoutPeriod) : "N/A"}
                       </span>
                     </div>
                     <div className="flex items-center mt-2">
                       <div className="w-full bg-gray-700 rounded-full h-2.5">
                         <div
-                          className={`${
-                            isExpired ? "bg-red-500" : "bg-green-500"
-                          } h-2.5 rounded-full`}
+                          className={`${isExpired ? "bg-red-500" : "bg-green-500"} h-2.5 rounded-full`}
                           style={{ width: `${calculateTimePercentage()}%` }}
                         ></div>
                       </div>
-                      <span className="ml-2 text-xs text-gray-400">
-                        {calculateTimePercentage()}%
-                      </span>
+                      <span className="ml-2 text-xs text-gray-400">{calculateTimePercentage()}%</span>
                     </div>
                   </div>
                 </>
@@ -592,18 +517,13 @@ export default function Dashboard() {
               <Card className="bg-black/40 border border-white/10 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle>Your Digital Assets</CardTitle>
-                  <CardDescription>
-                    Assets that will be included in your inheritance plan
-                  </CardDescription>
+                  <CardDescription>Assets that will be included in your inheritance plan</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
                     <div className="space-y-4">
                       {[1, 2].map((i) => (
-                        <div
-                          key={i}
-                          className="h-20 bg-gray-800 animate-pulse rounded-lg"
-                        ></div>
+                        <div key={i} className="h-20 bg-gray-800 animate-pulse rounded-lg"></div>
                       ))}
                     </div>
                   ) : (
@@ -620,28 +540,18 @@ export default function Dashboard() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-medium">
-                              {planDetails.balance.toFixed(4)} ETH
-                            </div>
-                            <div className="text-sm text-gray-400">
-                              ${(planDetails.balance * 1800).toFixed(2)}
-                            </div>
+                            <div className="font-medium">{planDetails.balance.toFixed(4)} ETH</div>
+                            <div className="text-sm text-gray-400">${(planDetails.balance * 1800).toFixed(2)}</div>
                           </div>
                         </div>
                       ) : (
-                        <div className="p-6 text-center text-gray-400">
-                          No assets found in your inheritance plan.
-                        </div>
+                        <div className="p-6 text-center text-gray-400">No assets found in your inheritance plan.</div>
                       )}
 
                       <div className="mt-4 pt-4 border-t border-white/10">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-400">
-                            Total Estimated Value
-                          </span>
-                          <span className="font-bold text-xl">
-                            ${(planDetails.balance * 1800).toFixed(2)}
-                          </span>
+                          <span className="text-sm text-gray-400">Total Estimated Value</span>
+                          <span className="font-bold text-xl">${(planDetails.balance * 1800).toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -662,18 +572,13 @@ export default function Dashboard() {
               <Card className="bg-black/40 border border-white/10 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle>Recent Transactions</CardTitle>
-                  <CardDescription>
-                    Your recent cryptocurrency transactions
-                  </CardDescription>
+                  <CardDescription>Your recent cryptocurrency transactions</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
                     <div className="space-y-4">
                       {[1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className="h-20 bg-gray-800 animate-pulse rounded-lg"
-                        ></div>
+                        <div key={i} className="h-20 bg-gray-800 animate-pulse rounded-lg"></div>
                       ))}
                     </div>
                   ) : (
@@ -688,9 +593,7 @@ export default function Dashboard() {
                               <div className="flex items-center">
                                 <div
                                   className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-                                    tx.type === "received"
-                                      ? "bg-green-900/50"
-                                      : "bg-blue-900/50"
+                                    tx.type === "received" ? "bg-green-900/50" : "bg-blue-900/50"
                                   }`}
                                 >
                                   {tx.type === "received" ? (
@@ -701,27 +604,17 @@ export default function Dashboard() {
                                 </div>
                                 <div>
                                   <div className="font-medium">
-                                    {tx.type === "received"
-                                      ? "Received"
-                                      : "Sent"}{" "}
-                                    {tx.amount}
+                                    {tx.type === "received" ? "Received" : "Sent"} {tx.amount}
                                   </div>
                                   <div className="text-sm text-gray-400">
-                                    {tx.type === "received"
-                                      ? `From: ${tx.from}`
-                                      : `To: ${tx.to}`}
+                                    {tx.type === "received" ? `From: ${tx.from}` : `To: ${tx.to}`}
                                   </div>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <div className="font-medium">
-                                  {tx.timestamp}
-                                </div>
+                                <div className="font-medium">{tx.timestamp}</div>
                                 <div className="text-sm">
-                                  <Badge
-                                    variant="outline"
-                                    className="border-green-500 text-green-400"
-                                  >
+                                  <Badge variant="outline" className="border-green-500 text-green-400">
                                     {tx.status}
                                   </Badge>
                                 </div>
@@ -729,20 +622,14 @@ export default function Dashboard() {
                             </div>
                           ))
                         ) : (
-                          <div className="p-6 text-center text-gray-400">
-                            No transactions found.
-                          </div>
+                          <div className="p-6 text-center text-gray-400">No transactions found.</div>
                         )}
                       </div>
                     </ScrollArea>
                   )}
                 </CardContent>
                 <CardFooter className="flex justify-between">
-                  <Button
-                    variant="outline"
-                    className="border-white/10"
-                    disabled={!planExists}
-                  >
+                  <Button variant="outline" className="border-white/10" disabled={!planExists}>
                     Export History
                   </Button>
                   <Button
@@ -759,18 +646,13 @@ export default function Dashboard() {
               <Card className="bg-black/40 border border-white/10 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle>Your Beneficiaries</CardTitle>
-                  <CardDescription>
-                    People who will receive your assets
-                  </CardDescription>
+                  <CardDescription>People who will receive your assets</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
                     <div className="space-y-4">
                       {[1, 2].map((i) => (
-                        <div
-                          key={i}
-                          className="h-20 bg-gray-800 animate-pulse rounded-lg"
-                        ></div>
+                        <div key={i} className="h-20 bg-gray-800 animate-pulse rounded-lg"></div>
                       ))}
                     </div>
                   ) : (
@@ -786,21 +668,15 @@ export default function Dashboard() {
                                 <User className="w-5 h-5 text-white" />
                               </div>
                               <div>
-                                <div className="font-medium">
-                                  {beneficiary.name}
-                                </div>
-                                <div className="text-sm text-gray-400">
-                                  {beneficiary.address}
-                                </div>
+                                <div className="font-medium">{beneficiary.name}</div>
+                                <div className="text-sm text-gray-400">{beneficiary.address}</div>
                                 <div className="text-xs text-gray-500 mt-1">
                                   Relationship: {beneficiary.relationship}
                                 </div>
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="font-medium">
-                                {beneficiary.percentage.toFixed(0)}% Share
-                              </div>
+                              <div className="font-medium">{beneficiary.percentage.toFixed(0)}% Share</div>
                               <Button
                                 variant="link"
                                 className="p-0 h-auto text-sm text-blue-400"
@@ -813,17 +689,13 @@ export default function Dashboard() {
                         ))
                       ) : (
                         <div className="p-6 text-center text-gray-400">
-                          No beneficiaries found. Add beneficiaries to your
-                          inheritance plan.
+                          No beneficiaries found. Add beneficiaries to your inheritance plan.
                         </div>
                       )}
 
                       {planExists && (
                         <div className="p-3 rounded-lg bg-gray-900/50 border border-white/5 border-dashed flex items-center justify-center">
-                          <Button
-                            variant="ghost"
-                            className="text-gray-400 hover:text-white"
-                          >
+                          <Button variant="ghost" className="text-gray-400 hover:text-white">
                             <Plus className="w-4 h-4 mr-2" />
                             Add Another Beneficiary
                           </Button>
@@ -836,14 +708,10 @@ export default function Dashboard() {
                     <div className="flex items-start">
                       <Info className="w-5 h-5 text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
                       <div>
-                        <h4 className="font-medium text-blue-400">
-                          Inheritance Terms
-                        </h4>
+                        <h4 className="font-medium text-blue-400">Inheritance Terms</h4>
                         <p className="text-sm text-gray-300 mt-1">
                           {planExists
-                            ? `Your assets will be transferred to your beneficiaries after ${formatTimeRemaining(
-                                planDetails.timeoutPeriod
-                              )} of inactivity. You can reset this timer by logging in or performing any transaction.`
+                            ? `Your assets will be transferred to your beneficiaries after ${formatTimeRemaining(planDetails.timeoutPeriod)} of inactivity. You can reset this timer by logging in or performing any transaction.`
                             : "Create an inheritance plan to set up terms for your beneficiaries."}
                         </p>
                       </div>
@@ -855,11 +723,7 @@ export default function Dashboard() {
                     asChild
                     className="w-full bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-600 hover:to-blue-600"
                   >
-                    <Link href="/beneficiaries">
-                      {planExists
-                        ? "Manage Beneficiaries"
-                        : "Create Inheritance Plan"}
-                    </Link>
+                    <Link href="/beneficiaries">{planExists ? "Manage Beneficiaries" : "Create Inheritance Plan"}</Link>
                   </Button>
                 </CardFooter>
               </Card>
@@ -869,18 +733,13 @@ export default function Dashboard() {
               <Card className="bg-black/40 border border-white/10 backdrop-blur-sm">
                 <CardHeader>
                   <CardTitle>Recent Activity</CardTitle>
-                  <CardDescription>
-                    Your recent transactions and actions
-                  </CardDescription>
+                  <CardDescription>Your recent transactions and actions</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
                     <div className="space-y-6 pl-10 relative">
                       {[1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className="h-16 bg-gray-800 animate-pulse rounded-lg"
-                        ></div>
+                        <div key={i} className="h-16 bg-gray-800 animate-pulse rounded-lg"></div>
                       ))}
                     </div>
                   ) : (
@@ -895,13 +754,8 @@ export default function Dashboard() {
                                 <div className="absolute -left-10 mt-1.5 w-4 h-4 rounded-full bg-blue-500"></div>
                                 <div>
                                   <div className="flex items-center">
-                                    <h4 className="font-medium">
-                                      Wallet Connected
-                                    </h4>
-                                    <Badge
-                                      variant="outline"
-                                      className="ml-2 border-blue-500 text-blue-400"
-                                    >
+                                    <h4 className="font-medium">Wallet Connected</h4>
+                                    <Badge variant="outline" className="ml-2 border-blue-500 text-blue-400">
                                       Just now
                                     </Badge>
                                   </div>
@@ -915,21 +769,12 @@ export default function Dashboard() {
                                 <div className="absolute -left-10 mt-1.5 w-4 h-4 rounded-full bg-green-500"></div>
                                 <div>
                                   <div className="flex items-center">
-                                    <h4 className="font-medium">
-                                      Last Activity
-                                    </h4>
-                                    <Badge
-                                      variant="outline"
-                                      className="ml-2 border-green-500 text-green-400"
-                                    >
-                                      {new Date(
-                                        planDetails.lastReset * 1000
-                                      ).toLocaleString()}
+                                    <h4 className="font-medium">Last Activity</h4>
+                                    <Badge variant="outline" className="ml-2 border-green-500 text-green-400">
+                                      {new Date(planDetails.lastReset * 1000).toLocaleString()}
                                     </Badge>
                                   </div>
-                                  <p className="text-sm text-gray-400 mt-1">
-                                    You reset the inactivity timer
-                                  </p>
+                                  <p className="text-sm text-gray-400 mt-1">You reset the inactivity timer</p>
                                 </div>
                               </div>
 
@@ -937,29 +782,20 @@ export default function Dashboard() {
                                 <div className="absolute -left-10 mt-1.5 w-4 h-4 rounded-full bg-amber-500"></div>
                                 <div>
                                   <div className="flex items-center">
-                                    <h4 className="font-medium">
-                                      Inheritance Plan Created
-                                    </h4>
-                                    <Badge
-                                      variant="outline"
-                                      className="ml-2 border-amber-500 text-amber-400"
-                                    >
-                                      {new Date(
-                                        planDetails.lastReset * 1000
-                                      ).toLocaleString()}
+                                    <h4 className="font-medium">Inheritance Plan Created</h4>
+                                    <Badge variant="outline" className="ml-2 border-amber-500 text-amber-400">
+                                      {new Date(planDetails.lastReset * 1000).toLocaleString()}
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-gray-400 mt-1">
-                                    You created your inheritance plan with{" "}
-                                    {planDetails.beneficiaryCount} beneficiaries
+                                    You created your inheritance plan with {planDetails.beneficiaryCount} beneficiaries
                                   </p>
                                 </div>
                               </div>
                             </>
                           ) : (
                             <div className="p-6 text-center text-gray-400">
-                              No activity found. Create an inheritance plan to
-                              start tracking activity.
+                              No activity found. Create an inheritance plan to start tracking activity.
                             </div>
                           )}
                         </div>
@@ -993,9 +829,7 @@ export default function Dashboard() {
           <Card className="bg-black/40 border border-white/10 backdrop-blur-sm overflow-hidden">
             <CardHeader className="bg-gradient-to-r from-purple-900/30 to-blue-900/30">
               <CardTitle>Educational Resources</CardTitle>
-              <CardDescription>
-                Learn more about blockchain inheritance and best practices
-              </CardDescription>
+              <CardDescription>Learn more about blockchain inheritance and best practices</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1005,13 +839,9 @@ export default function Dashboard() {
                     Inheritance Security
                   </h3>
                   <p className="text-sm text-gray-400">
-                    Learn how our blockchain inheritance system keeps your
-                    assets secure.
+                    Learn how our blockchain inheritance system keeps your assets secure.
                   </p>
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto text-sm text-purple-400 mt-2"
-                  >
+                  <Button variant="link" className="p-0 h-auto text-sm text-purple-400 mt-2">
                     Read More
                   </Button>
                 </div>
@@ -1022,13 +852,9 @@ export default function Dashboard() {
                     Beneficiary Best Practices
                   </h3>
                   <p className="text-sm text-gray-400">
-                    Tips for selecting and managing your inheritance
-                    beneficiaries.
+                    Tips for selecting and managing your inheritance beneficiaries.
                   </p>
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto text-sm text-blue-400 mt-2"
-                  >
+                  <Button variant="link" className="p-0 h-auto text-sm text-blue-400 mt-2">
                     Read More
                   </Button>
                 </div>
@@ -1038,13 +864,8 @@ export default function Dashboard() {
                     <Clock className="w-4 h-4 mr-2 text-cyan-400" />
                     Inactivity Monitoring
                   </h3>
-                  <p className="text-sm text-gray-400">
-                    Understanding how the inactivity monitoring system works.
-                  </p>
-                  <Button
-                    variant="link"
-                    className="p-0 h-auto text-sm text-cyan-400 mt-2"
-                  >
+                  <p className="text-sm text-gray-400">Understanding how the inactivity monitoring system works.</p>
+                  <Button variant="link" className="p-0 h-auto text-sm text-cyan-400 mt-2">
                     Read More
                   </Button>
                 </div>
@@ -1054,5 +875,5 @@ export default function Dashboard() {
         </motion.div>
       </motion.div>
     </div>
-  );
+  )
 }
