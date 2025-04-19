@@ -7,6 +7,10 @@ import WalletSignUp from './signin'
 import Header from './components/header'
 import Signup from './signin'
 import Home from './components/Home'
+import HeirsManagement from './pages/ManageHeirs'
+import UserProfile from './pages/UserDashboard'
+import { HeirProvider } from './context/HeirContext'
+import Dashboard from './pages/UserDashboard'
 
 function App() {
   const [userWallet] = useState('0x123...abc') // Example wallet
@@ -25,23 +29,25 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-200 ">
-        <div ><Header /></div>
-        <Routes>
-          <Route path="/home" element={<UserDashboard userWallet={userWallet} totalShare={totalShare} />} />
-          <Route path='/' element={<Home />} />
-          <Route
-            path="/manage-heirs"
-            element={<ManageHeirs heirs={heirs} setHeirPercentage={setHeirPercentage} />}
-          />
-          <Route
-            path="/sign-up"
-            element={<Signup />}
-          />
-        </Routes>
-      </div>
-    </Router>
+    <HeirProvider>
+      <Router>
+        <div className="min-h-screen bg-gray-200 ">
+          <div ><Header /></div>
+          <Routes>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path='/' element={<Home />} />
+            <Route
+              path="/manage-heirs"
+              element={<HeirsManagement />}
+            />
+            <Route
+              path="/sign-up"
+              element={<Signup />}
+            />
+          </Routes>
+        </div>
+      </Router>
+    </HeirProvider>
   )
 }
 
