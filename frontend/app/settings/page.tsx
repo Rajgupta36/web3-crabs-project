@@ -78,7 +78,6 @@ export default function SettingsPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 bg-black/40 border border-white/10">
               <TabsTrigger value="account">Account</TabsTrigger>
-              <TabsTrigger value="appearance">Appearance</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
             </TabsList>
 
@@ -175,11 +174,10 @@ export default function SettingsPage() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div
-                        className={`p-4 rounded-lg border cursor-pointer flex items-center justify-center flex-col gap-2 ${
-                          theme === "dark"
-                            ? "bg-gray-900 border-purple-500"
-                            : "bg-gray-900/50 border-white/10 hover:border-white/30"
-                        }`}
+                        className={`p-4 rounded-lg border cursor-pointer flex items-center justify-center flex-col gap-2 ${theme === "dark"
+                          ? "bg-gray-900 border-purple-500"
+                          : "bg-gray-900/50 border-white/10 hover:border-white/30"
+                          }`}
                         onClick={() => setTheme("dark")}
                       >
                         <Moon className="h-6 w-6 text-purple-400" />
@@ -187,11 +185,10 @@ export default function SettingsPage() {
                       </div>
 
                       <div
-                        className={`p-4 rounded-lg border cursor-pointer flex items-center justify-center flex-col gap-2 ${
-                          theme === "light"
-                            ? "bg-gray-900 border-purple-500"
-                            : "bg-gray-900/50 border-white/10 hover:border-white/30"
-                        }`}
+                        className={`p-4 rounded-lg border cursor-pointer flex items-center justify-center flex-col gap-2 ${theme === "light"
+                          ? "bg-gray-900 border-purple-500"
+                          : "bg-gray-900/50 border-white/10 hover:border-white/30"
+                          }`}
                         onClick={() => setTheme("light")}
                       >
                         <Sun className="h-6 w-6 text-amber-400" />
@@ -239,7 +236,7 @@ export default function SettingsPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <h3 className="text-lg font-medium">Two-Factor Authentication</h3>
+                        <h3 className="text-lg font-medium">Two-Factor Authentication #TODO</h3>
                         <p className="text-sm text-gray-400">Add an extra layer of security to your account</p>
                       </div>
                       <Switch id="two-factor" checked={twoFactorEnabled} onCheckedChange={setTwoFactorEnabled} />

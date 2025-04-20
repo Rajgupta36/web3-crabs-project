@@ -1,5 +1,5 @@
 "use client";
-
+import { isAddress } from "ethers";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useWallet } from "@/components/wallet-provider";
@@ -66,17 +66,7 @@ export default function BeneficiariesPage() {
   const { address, connectWallet, balance, disconnectWallet } = useWallet();
   const { toast } = useToast();
   const router = useRouter();
-  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([
-    {
-      id: "1",
-      address: "",
-      percentage: 100,
-      name: "Primary Beneficiary",
-      relationship: "Family",
-      email: "",
-      contact: "",
-    },
-  ]);
+  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [inactivityPeriod, setInactivityPeriod] = useState(90); // days
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [activeTab, setActiveTab] = useState("beneficiaries");
@@ -86,6 +76,29 @@ export default function BeneficiariesPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [depositAmount, setDepositAmount] = useState("0.1");
   const [isCreating, setIsCreating] = useState(false);
+
+
+  useEffect(() => {
+    const loadBeneficiaries = async () => {
+      const addresses = await fetchAllBeneficiaries();
+      console.log("Beneficiary addresses:", addresses);
+
+      // You can set these in state, e.g., with empty names/percentages to start
+      setBeneficiaries(
+        addresses.map((addr, index) => ({
+          id: `${index}`,
+          address: addr,
+          percentage: 0,
+          name: `Beneficiary ${index + 1}`,
+          relationship: "",
+        }))
+      );
+    };
+
+    if (planExists && address) {
+      loadBeneficiaries();
+    }
+  }, [address, planExists]);
 
   // Check if plan exists when component mounts
   useEffect(() => {
@@ -114,7 +127,24 @@ export default function BeneficiariesPage() {
     }
   }
 
-  // Animation variants
+  const fetchAllBeneficiaries = async () => {
+    if (!address) return [];
+
+    try {
+      const provider = new ethers.JsonRpcProvider(
+        "https://arb-sepolia.g.alchemy.com/v2/f9bE8l6qwQCIYwFnkd-iPUFehrLW1wtY"
+      );
+      const contract = new ethers.Contract(contractAddress, inheritanceABI, provider);
+
+      const beneficiaryAddresses: string[] = await contract.getAllBeneficiaries(address);
+      console.log("Beneficiary addresses from contract:", beneficiaryAddresses);
+      return beneficiaryAddresses;
+    } catch (error) {
+      console.error("Error fetching beneficiaries:", error);
+      return [];
+    }
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -170,22 +200,44 @@ export default function BeneficiariesPage() {
     setBeneficiaries(beneficiaries.filter((b) => b.id !== id));
   };
 
-  const updateBeneficiary = (
+  const updateBeneficiary = async (
     id: string,
     field: keyof Beneficiary,
     value: string | number
   ) => {
-    setBeneficiaries(
-      beneficiaries.map((b) => (b.id === id ? { ...b, [field]: value } : b))
+    if (field === "address") {
+      if (!isAddress(value as string)) {
+        toast({
+          title: "Invalid address",
+          description: "Please enter a valid Ethereum address",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        await addBeneficiaryToContract(value as string);
+      } catch (error) {
+        return;
+      }
+    }
+
+    setBeneficiaries((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, [field]: value } : b))
     );
+
+    toast({
+      title: "Beneficiary updated",
+      description: `Beneficiary ${field} has been updated`,
+    });
   };
 
   const getTotalPercentage = () => {
     return beneficiaries.reduce((sum, b) => sum + b.percentage, 0);
   };
 
-  // Add a beneficiary to an existing plan
   const addBeneficiaryToContract = async (beneficiaryAddress: string) => {
+    console.log("Adding beneficiary:", beneficiaryAddress);
     if (!address) {
       toast({
         title: "Wallet not connected",
@@ -197,10 +249,14 @@ export default function BeneficiariesPage() {
 
     try {
       setIsLoading(true);
-      const contract = new ethers.Contract(contractAddress, inheritanceABI);
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+
+      const contract = new ethers.Contract(contractAddress, inheritanceABI, signer);
+
       const tx = await contract.addBeneficiary(beneficiaryAddress);
       await tx.wait();
-
       toast({
         title: "Beneficiary added",
         description: "Beneficiary has been added to your inheritance plan",
@@ -217,7 +273,8 @@ export default function BeneficiariesPage() {
     }
   };
 
-  // Remove a beneficiary from an existing plan
+
+
   const removeBeneficiaryFromContract = async (beneficiaryAddress: string) => {
     if (!address) {
       toast({
@@ -251,7 +308,6 @@ export default function BeneficiariesPage() {
     }
   };
 
-  // Create a new inheritance plan
   const createInheritancePlan = async () => {
     if (!address) {
       toast({
@@ -262,7 +318,6 @@ export default function BeneficiariesPage() {
       return;
     }
 
-    // Validate beneficiaries
     const invalidAddresses = beneficiaries.filter(
       (b) => !ethers.isAddress(b.address)
     );
@@ -295,16 +350,12 @@ export default function BeneficiariesPage() {
         signer
       );
       console.log("Contract instance:", contract);
-      // Convert inactivity period from days to seconds
       const timeoutPeriodSeconds = inactivityPeriod * 24 * 60 * 60;
       console.log("Timeout period in seconds:", timeoutPeriodSeconds);
-      // Get beneficiary addresses
       const beneficiaryAddresses = beneficiaries.map((b) => b.address);
       console.log("Beneficiary addresses:", beneficiaryAddresses);
-      // Convert ETH to wei
       const valueInWei = ethers.parseEther(depositAmount);
       console.log("Deposit amount in wei:", valueInWei.toString());
-      // Create the inheritance plan
       const tx = await contract.createInheritancePlan(
         beneficiaryAddresses,
         timeoutPeriodSeconds,
@@ -318,7 +369,6 @@ export default function BeneficiariesPage() {
         description: "Your inheritance plan has been created successfully",
       });
 
-      // Close dialog and redirect to dashboard
       setShowCreateDialog(false);
       router.push("/");
     } catch (error) {
@@ -333,7 +383,6 @@ export default function BeneficiariesPage() {
     }
   };
 
-  // Save beneficiaries to an existing plan
   const saveBeneficiaries = () => {
     const total = getTotalPercentage();
     if (total !== 100) {
@@ -345,7 +394,6 @@ export default function BeneficiariesPage() {
       return;
     }
 
-    // Validate wallet addresses
     const invalidAddresses = beneficiaries.filter(
       (b) => !ethers.isAddress(b.address)
     );
@@ -359,14 +407,11 @@ export default function BeneficiariesPage() {
     }
 
     if (planExists) {
-      // Update existing plan
       toast({
         title: "Updating beneficiaries",
         description: "Your inheritance plan is being updated",
       });
-      // Here you would call the contract methods to update beneficiaries
     } else {
-      // Show dialog to create new plan
       setShowCreateDialog(true);
     }
   };
@@ -517,7 +562,7 @@ export default function BeneficiariesPage() {
                                 Allocation Percentage
                               </Label>
                               <span className="text-sm font-medium">
-                                {beneficiary.percentage}%
+                                {beneficiary.percentage || 100}%
                               </span>
                             </div>
                             <Slider
@@ -525,7 +570,7 @@ export default function BeneficiariesPage() {
                               min={0}
                               max={100}
                               step={1}
-                              value={[beneficiary.percentage]}
+                              value={[beneficiary.percentage || 100]}
                               onValueChange={(value) =>
                                 updateBeneficiary(
                                   beneficiary.id,
@@ -543,7 +588,7 @@ export default function BeneficiariesPage() {
                               Relationship
                             </Label>
                             <Select
-                              value={beneficiary.relationship}
+                              value={beneficiary.relationship || 'Family'}
                               onValueChange={(value) =>
                                 updateBeneficiary(
                                   beneficiary.id,
@@ -572,7 +617,7 @@ export default function BeneficiariesPage() {
 
                           <div className="space-y-2">
                             <Label htmlFor={`email-${beneficiary.id}`}>
-                              Contact Email (Optional)
+                              Contact Email (Optional)#TODO
                             </Label>
                             <Input
                               id={`email-${beneficiary.id}`}
@@ -612,11 +657,10 @@ export default function BeneficiariesPage() {
                     ))}
 
                     <div
-                      className={`flex items-center p-3 rounded-lg ${
-                        getTotalPercentage() === 100
-                          ? "bg-green-900/20 text-green-400"
-                          : "bg-amber-900/20 text-amber-400"
-                      }`}
+                      className={`flex items-center p-3 rounded-lg ${getTotalPercentage() === 100
+                        ? "bg-green-900/20 text-green-400"
+                        : "bg-amber-900/20 text-amber-400"
+                        }`}
                     >
                       <AlertCircle className="h-5 w-5 mr-2" />
                       <div className="text-sm">
@@ -849,15 +893,6 @@ export default function BeneficiariesPage() {
                         agreement
                       </Label>
                     </div>
-
-                    <Button
-                      onClick={downloadAgreement}
-                      disabled={!termsAccepted}
-                      className="w-full bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-600 hover:to-blue-600"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download Agreement
-                    </Button>
                   </div>
 
                   <div className="space-y-4">

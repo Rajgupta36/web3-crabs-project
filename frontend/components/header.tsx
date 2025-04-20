@@ -11,6 +11,7 @@ import { Menu, X } from "lucide-react"
 const navItems = [
   { name: "Dashboard", path: "/" },
   { name: "Beneficiaries", path: "/beneficiaries" },
+  { name: "Claims", path: "/claims" },
 ]
 
 export default function Header() {
@@ -34,9 +35,8 @@ export default function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        scrolled ? "bg-black/80 backdrop-blur-md border-b border-white/10" : "bg-transparent"
-      }`}
+      className={`sticky top-0 z-50 w-full transition-all duration-300 ${scrolled ? "bg-black/80 backdrop-blur-md border-b border-white/10" : "bg-transparent"
+        }`}
     >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
@@ -62,9 +62,8 @@ export default function Header() {
               <Link
                 key={item.path}
                 href={item.path}
-                className={`relative px-1 py-2 text-sm font-medium transition-colors ${
-                  pathname === item.path ? "text-white" : "text-gray-400 hover:text-white"
-                }`}
+                className={`relative px-1 py-2 text-sm font-medium transition-colors ${pathname === item.path ? "text-white" : "text-gray-400 hover:text-white"
+                  }`}
               >
                 {item.name}
                 {pathname === item.path && (
@@ -137,9 +136,8 @@ export default function Header() {
               <Link
                 key={item.path}
                 href={item.path}
-                className={`block px-3 py-2 rounded-md text-base font-medium ${
-                  pathname === item.path ? "bg-gray-900 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white"
-                }`}
+                className={`block px-3 py-2 rounded-md text-base font-medium ${pathname === item.path ? "bg-gray-900 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                  }`}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 {item.name}

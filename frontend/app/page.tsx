@@ -58,7 +58,6 @@ export default function Dashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(3);
 
-  // Contract data states
   const [planExists, setPlanExists] = useState(false);
   const [planDetails, setPlanDetails] = useState({
     balance: 0,
@@ -70,9 +69,9 @@ export default function Dashboard() {
     protocolShare: 0,
   });
   const [showDialog, setShowDialog] = useState(false);
-const [amount, setAmount] = useState(""); 
-const [depositAmount, setDepositAmount] = useState("0.0001"); 
-const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [depositAmount, setDepositAmount] = useState("0.0001");
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [beneficiaries, setBeneficiaries] = useState<
     {
@@ -86,17 +85,14 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [isExpired, setIsExpired] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch contract data when address changes
   useEffect(() => {
     if (address) {
       fetchContractData();
     }
   }, [address]);
 
-  // Update progress based on plan details
   useEffect(() => {
     if (planExists) {
-      // Calculate progress based on beneficiary count and other factors
       const beneficiaryProgress = planDetails?.beneficiaryCount > 0 ? 50 : 0;
       const balanceProgress = planDetails?.balance > 0 ? 50 : 0;
       setProgress(beneficiaryProgress + balanceProgress);
@@ -105,21 +101,17 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
     }
   }, [planDetails, planExists]);
 
-  // Fetch all contract data
   async function fetchContractData() {
     if (!address) return;
 
     setIsLoading(true);
     try {
-      // Check if owner exists
       const ownerExists = await contract.ownerExists(address);
       setPlanExists(ownerExists);
 
       if (ownerExists) {
-        // Get plan details
         const details = await contract.getPlanDetails(address);
 
-        // Convert BigInt values to numbers for UI
         setPlanDetails({
           balance: Number(ethers.formatEther(details[0] || 0)),
           beneficiaryCount: Number(details[1] || 0),
@@ -130,17 +122,12 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
           protocolShare: Number(ethers.formatEther(details[6] || 0)),
         });
 
-        // Check if plan is expired
         const expired = await contract.isOwnerExpired(address);
         setIsExpired(expired);
 
-        // Get time remaining
         const remaining = await contract.timeRemaining(address);
         setTimeRemaining(Number(remaining || 0));
 
-        // For a real implementation, you would need to fetch the actual beneficiaries
-        // This would require either events or a contract method that returns all beneficiaries
-        // For now, we'll create placeholder beneficiaries based on the count
         const placeholderBeneficiaries = [];
         for (let i = 0; i < Number(details[1]); i++) {
           placeholderBeneficiaries.push({
@@ -153,7 +140,6 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
         }
         setBeneficiaries(placeholderBeneficiaries);
       } else {
-        // Reset all values if no plan exists
         resetContractData();
       }
     } catch (error) {
@@ -164,7 +150,6 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
     }
   }
 
-  // Reset all contract data to default values
   function resetContractData() {
     setPlanDetails({
       balance: 0,
@@ -180,11 +165,6 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
     setIsExpired(false);
   }
 
-  // Reset the timer
-
-
-
-  // Format time remaining in a human-readable format
   function formatTimeRemaining(seconds: number) {
     if (seconds <= 0) return "Expired";
 
@@ -201,7 +181,6 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
     }
   }
 
-  // Calculate percentage of time elapsed
   function calculateTimePercentage() {
     if (!planDetails?.timeoutPeriod) return 0;
 
@@ -212,7 +191,6 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
     );
   }
 
-  // Mock transactions data - in a real app, you would fetch this from blockchain events
   const recentTransactions = [
     {
       id: 1,
@@ -222,8 +200,8 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
         : "0 ETH",
       from: address
         ? `${address.substring(0, 6)}...${address.substring(
-            address.length - 4
-          )}`
+          address.length - 4
+        )}`
         : "0x0000...0000",
       timestamp: "2 hours ago",
       status: "completed",
@@ -268,7 +246,6 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
               <Wallet className="w-12 h-12 text-white" />
             </motion.div>
 
-            {/* Animated particles */}
             <motion.div
               className="absolute top-1/3 left-1/4 w-4 h-4 rounded-full bg-purple-500 animate-pulse-slow"
               animate={{
@@ -307,61 +284,80 @@ const [showCreateDialog, setShowCreateDialog] = useState(false);
     );
   }
 
+  async function handleWithdraw(): Promise<void> {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
 
-//@ts-ignore
-async function handleAddAssets(): Promise<void> {
+      const contract = new ethers.Contract(
+        contractAddress,
+        inheritanceABI,
+        signer
+      );
 
-  try {
-    // Request account access from MetaMask or wallet
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
+      const tx = await contract.withdrawAll();
+      await tx.wait();
 
-    const contract = new ethers.Contract(
-      contractAddress,
-      inheritanceABI,
-      signer
-    );
-
-    // Send ETH to contract via addFunds (no params)
-    const tx = await contract.addFunds({
-      value: ethers.parseEther(depositAmount),
-    });
-
-    await tx.wait();
-
-    console.log("Funds added:", tx.hash);
-    setPlanExists(true);
-    setShowDialog(false);
-    setAmount("");
-  } catch (error) {
-    console.error("Error sending funds:", error);
+      console.log("Funds withdrawn:", tx.hash);
+      fetchContractData();
+    } catch (error) {
+      console.error("Error withdrawing funds:", error);
+    }
   }
-}
 
-const resetTimer = async (): Promise<void> => {
-  setIsLoading(true);
-  try {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const contract = new ethers.Contract(contractAddress, inheritanceABI, signer);
 
-    const tx = await contract.resetTimer()
-    await tx.wait();
-   
-    console.log("Timer reset:", tx.hash);
+  //@ts-ignore
+  async function handleAddAssets(): Promise<void> {
 
-    // Re-fetch plan details
-    fetchContractData();
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
 
-    setPlanExists(true);
-    setIsExpired(false);
-    setAmount("");
-  } catch (error) {
-    console.error("Error resetting timer:", error);
-  } finally {
-    setIsLoading(false);
+      const contract = new ethers.Contract(
+        contractAddress,
+        inheritanceABI,
+        signer
+      );
+
+      const tx = await contract.addFunds({
+        value: ethers.parseEther(depositAmount),
+      });
+
+      await tx.wait();
+
+      console.log("Funds added:", tx.hash);
+      setPlanExists(true);
+      setShowDialog(false);
+      setAmount("");
+    } catch (error) {
+      console.error("Error sending funds:", error);
+    }
   }
-};
+
+  const resetTimer = async (): Promise<void> => {
+    setIsLoading(true);
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const contract = new ethers.Contract(contractAddress, inheritanceABI, signer);
+
+      const tx = await contract.resetTimer()
+      await tx.wait();
+
+      console.log("Timer reset:", tx.hash);
+
+      // Re-fetch plan details
+      fetchContractData();
+
+      setPlanExists(true);
+      setIsExpired(false);
+      setAmount("");
+    } catch (error) {
+      console.error("Error resetting timer:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
 
 
@@ -500,11 +496,22 @@ const resetTimer = async (): Promise<void> => {
                 {isLoading ? (
                   <div className="h-4 w-32 bg-gray-800 animate-pulse rounded"></div>
                 ) : (
-                  `Total value: ${(planDetails?.balance * 1800).toFixed(2)}`
+                  `Total value: $${(planDetails?.balance * 1800).toFixed(2)}`
                 )}
+              </div>
+
+              {/* Withdraw Button */}
+              <div className="mt-4">
+                <button
+                  onClick={handleWithdraw} // Replace with your actual withdraw handler
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200"
+                >
+                  Withdraw Money
+                </button>
               </div>
             </CardContent>
           </Card>
+
 
           <Card className="bg-black/40 border border-white/10 backdrop-blur-sm">
             <CardHeader className="pb-2">
@@ -558,76 +565,74 @@ const resetTimer = async (): Promise<void> => {
           </Card>
 
           <Card className="bg-black/40 border border-white/10 backdrop-blur-sm">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center">
-          <Clock className="w-5 h-5 mr-2 text-cyan-500" />
-          Activity Status
-        </CardTitle>
-        <CardDescription>Time until inheritance trigger</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">
-            <div className="h-6 w-20 bg-gray-800 animate-pulse rounded"></div>
-            <div className="h-4 w-32 bg-gray-800 animate-pulse rounded"></div>
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <div className="h-4 w-full bg-gray-800 animate-pulse rounded"></div>
-              <div className="mt-2 h-2.5 w-full bg-gray-800 animate-pulse rounded-full"></div>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div
-              className={`text-xl font-medium ${
-                isExpired ? "text-red-500" : "text-green-500"
-              }`}
-            >
-              {isExpired ? "Expired" : "Active"}
-            </div>
-            <div className="text-sm text-gray-400 mt-1">
-              Last activity:{" "}
-              {planExists
-                ? new Date(planDetails?.lastReset * 1000).toLocaleString()
-                : "N/A"}
-            </div>
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <div className="text-sm">
-                Inactivity threshold:{" "}
-                <span className="font-medium">
-                  {planExists
-                    ? formatTimeRemaining(planDetails?.timeoutPeriod)
-                    : "N/A"}
-                </span>
-              </div>
-              <div className="flex items-center mt-2">
-                <div className="w-full bg-gray-700 rounded-full h-2.5">
-                  <div
-                    className={`${
-                      isExpired ? "bg-red-500" : "bg-green-500"
-                    } h-2.5 rounded-full`}
-                    style={{ width: `${calculateTimePercentage()}%` }}
-                  ></div>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center">
+                <Clock className="w-5 h-5 mr-2 text-cyan-500" />
+                Activity Status
+              </CardTitle>
+              <CardDescription>Time until inheritance trigger</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-2">
+                  <div className="h-6 w-20 bg-gray-800 animate-pulse rounded"></div>
+                  <div className="h-4 w-32 bg-gray-800 animate-pulse rounded"></div>
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="h-4 w-full bg-gray-800 animate-pulse rounded"></div>
+                    <div className="mt-2 h-2.5 w-full bg-gray-800 animate-pulse rounded-full"></div>
+                  </div>
                 </div>
-                <span className="ml-2 text-xs text-gray-400">
-                  {calculateTimePercentage().toFixed(0)}%
-                </span>
-              </div>
-            </div>
-          </>
-        )}
-      </CardContent>
-      {planExists && !isExpired && (
-        <CardFooter>
-          <Button
-            onClick={resetTimer}
-            className="w-full bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:from-cyan-600 hover:to-blue-600"
-            disabled={isLoading}
-          >
-            {isLoading ? "Resetting..." : "Reset Timer"}
-          </Button>
-        </CardFooter>
-      )}
-    </Card>
+              ) : (
+                <>
+                  <div
+                    className={`text-xl font-medium ${isExpired ? "text-red-500" : "text-green-500"
+                      }`}
+                  >
+                    {isExpired ? "Expired" : "Active"}
+                  </div>
+                  <div className="text-sm text-gray-400 mt-1">
+                    Last activity:{" "}
+                    {planExists
+                      ? new Date(planDetails?.lastReset * 1000).toLocaleString()
+                      : "N/A"}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="text-sm">
+                      Inactivity threshold:{" "}
+                      <span className="font-medium">
+                        {planExists
+                          ? formatTimeRemaining(planDetails?.timeoutPeriod)
+                          : "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex items-center mt-2">
+                      <div className="w-full bg-gray-700 rounded-full h-2.5">
+                        <div
+                          className={`${isExpired ? "bg-red-500" : "bg-green-500"
+                            } h-2.5 rounded-full`}
+                          style={{ width: `${calculateTimePercentage()}%` }}
+                        ></div>
+                      </div>
+                      <span className="ml-2 text-xs text-gray-400">
+                        {calculateTimePercentage().toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+            {planExists && !isExpired && (
+              <CardFooter>
+                <Button
+                  onClick={resetTimer}
+                  className="w-full bg-gradient-to-r from-cyan-600/80 to-blue-600/80 hover:from-cyan-600 hover:to-blue-600"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Resetting..." : "Reset Timer"}
+                </Button>
+              </CardFooter>
+            )}
+          </Card>
         </motion.div>
 
         <motion.div
@@ -684,7 +689,7 @@ const resetTimer = async (): Promise<void> => {
                               {planDetails?.balance.toFixed(4)} ETH
                             </div>
                             <div className="text-sm text-gray-400">
-                            ${(planDetails?.balance * 1800).toFixed(2)}
+                              ${(planDetails?.balance * 1800).toFixed(2)}
                             </div>
                           </div>
                         </div>
@@ -708,73 +713,73 @@ const resetTimer = async (): Promise<void> => {
                   )}
                 </CardContent>
                 <CardFooter>
-                <Button
-  className="w-full bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-600 hover:to-blue-600"
-  onClick={() => setShowDialog(true)}
->
-  Add More Assets
-</Button>
-{showDialog && (
-  <Dialog open={showDialog} onOpenChange={setShowDialog}>
-  <DialogContent className="bg-gray-950 border border-white/10 text-white">
-    <DialogHeader>
-      <DialogTitle>Add Funds</DialogTitle>
-      <DialogDescription>
-        You need to deposit ETH to create your inheritance plan. This will
-        be distributed to your beneficiaries after the inactivity period.
-      </DialogDescription>
-    </DialogHeader>
+                  <Button
+                    className="w-full bg-gradient-to-r from-purple-600/80 to-blue-600/80 hover:from-purple-600 hover:to-blue-600"
+                    onClick={() => setShowDialog(true)}
+                  >
+                    Add More Assets
+                  </Button>
+                  {showDialog && (
+                    <Dialog open={showDialog} onOpenChange={setShowDialog}>
+                      <DialogContent className="bg-gray-950 border border-white/10 text-white">
+                        <DialogHeader>
+                          <DialogTitle>Add Funds</DialogTitle>
+                          <DialogDescription>
+                            You need to deposit ETH to create your inheritance plan. This will
+                            be distributed to your beneficiaries after the inactivity period.
+                          </DialogDescription>
+                        </DialogHeader>
 
-    <div className="space-y-4 py-4">
-      <div className="space-y-2">
-        <Label htmlFor="deposit-amount">Deposit Amount (ETH)</Label>
-        <Input
-          id="deposit-amount"
-          type="number"
-          step="0.01"
-          value={depositAmount}
-          onChange={(e) => setDepositAmount(e.target.value)}
-          className="bg-black/30 border-white/10"
-        />
-        <p className="text-xs text-gray-400">
-          This amount will be locked in the contract and distributed to
-          your beneficiaries if the inactivity period is reached.
-        </p>
-      </div>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="deposit-amount">Deposit Amount (ETH)</Label>
+                            <Input
+                              id="deposit-amount"
+                              type="number"
+                              step="0.01"
+                              value={depositAmount}
+                              onChange={(e) => setDepositAmount(e.target.value)}
+                              className="bg-black/30 border-white/10"
+                            />
+                            <p className="text-xs text-gray-400">
+                              This amount will be locked in the contract and distributed to
+                              your beneficiaries if the inactivity period is reached.
+                            </p>
+                          </div>
 
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium">Plan Summary</h4>
-        <div className="bg-black/30 rounded-lg p-3 text-sm">
-          <div className="flex justify-between py-1">
-            <span className="text-gray-400">Beneficiaries:</span>
-            <span>{beneficiaries.length}</span>
-          </div>
-          <div className="flex justify-between py-1">
-            <span className="text-gray-400">Deposit Amount:</span>
-            <span>{depositAmount} ETH</span>
-          </div>
-        </div>
-      </div>
-    </div>
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-medium">Plan Summary</h4>
+                            <div className="bg-black/30 rounded-lg p-3 text-sm">
+                              <div className="flex justify-between py-1">
+                                <span className="text-gray-400">Beneficiaries:</span>
+                                <span>{beneficiaries.length}</span>
+                              </div>
+                              <div className="flex justify-between py-1">
+                                <span className="text-gray-400">Deposit Amount:</span>
+                                <span>{depositAmount} ETH</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
 
-    <DialogFooter>
-      <Button
-        variant="outline"
-        onClick={() => setShowCreateDialog(false)}
-        className="border-white/10"
-      >
-        Cancel
-      </Button>
-      <Button
-         onClick={handleAddAssets}
-        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-      >
-            Add funds
-      </Button>
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
-)}
+                        <DialogFooter>
+                          <Button
+                            variant="outline"
+                            onClick={() => setShowCreateDialog(false)}
+                            className="border-white/10"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleAddAssets}
+                            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                          >
+                            Add funds
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  )}
 
 
                 </CardFooter>
@@ -810,11 +815,10 @@ const resetTimer = async (): Promise<void> => {
                             >
                               <div className="flex items-center">
                                 <div
-                                  className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-                                    tx.type === "received"
-                                      ? "bg-green-900/50"
-                                      : "bg-blue-900/50"
-                                  }`}
+                                  className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${tx.type === "received"
+                                    ? "bg-green-900/50"
+                                    : "bg-blue-900/50"
+                                    }`}
                                 >
                                   {tx.type === "received" ? (
                                     <ArrowDown className="w-5 h-5 text-green-400" />
@@ -927,7 +931,7 @@ const resetTimer = async (): Promise<void> => {
                               <Button
                                 variant="link"
                                 className="p-0 h-auto text-sm text-blue-400"
-                                onClick={()=>{window.location.href='/beneficiaries'}}
+                                onClick={() => { window.location.href = '/beneficiaries' }}
                               >
                                 Edit
                               </Button>
@@ -965,8 +969,8 @@ const resetTimer = async (): Promise<void> => {
                         <p className="text-sm text-gray-300 mt-1">
                           {planExists
                             ? `Your assets will be transferred to your beneficiaries after ${formatTimeRemaining(
-                                planDetails?.timeoutPeriod
-                              )} of inactivity. You can reset this timer by logging in or performing any transaction.`
+                              planDetails?.timeoutPeriod
+                            )} of inactivity. You can reset this timer by logging in or performing any transaction.`
                             : "Create an inheritance plan to set up terms for your beneficiaries."}
                         </p>
                       </div>
