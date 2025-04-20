@@ -562,7 +562,7 @@ export default function BeneficiariesPage() {
                                 Allocation Percentage
                               </Label>
                               <span className="text-sm font-medium">
-                                {beneficiary.percentage || 100}%
+                                {beneficiary.percentage || 50}%
                               </span>
                             </div>
                             <Slider
@@ -570,7 +570,7 @@ export default function BeneficiariesPage() {
                               min={0}
                               max={100}
                               step={1}
-                              value={[beneficiary.percentage || 100]}
+                              value={[beneficiary.percentage || 50]}
                               onValueChange={(value) =>
                                 updateBeneficiary(
                                   beneficiary.id,
