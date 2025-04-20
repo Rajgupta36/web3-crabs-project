@@ -22,8 +22,8 @@ export default function RootLayout({
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/20 via-black to-black -z-10" />
               <Header />
               <main className="flex-1">{children}</main>
-              <Toaster />
             </div>
+            <Toaster />
           </WalletProvider>
         </ThemeProvider>
       </body>
@@ -32,5 +32,5 @@ export default function RootLayout({
 }
 
 export const metadata = {
-      generator: 'v0.dev'
-    };
+  generator: 'v0.dev'
+};
